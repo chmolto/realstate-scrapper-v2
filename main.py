@@ -57,14 +57,26 @@ def search_homes(token):
         "country": "es",
         "operation": "sale",
         "propertyType": "homes",
-        "center": "40.4167,-3.70325", # MADRID - CHANGE THIS!
-        "distance": "10000",           # 10km radius
+        # CENTER/LOCATION: The user provided a polygon (shape). 
+        # The API technically supports 'locationId' or 'center'. 
+        # For simplicity in this script, we will use a lat/long center + radius 
+        # that roughly covers a city center (Madrid Sol as placeholder).
+        # USER MUST UPDATE THIS TO THEIR PREFERRED CENTER!
+        "center": "40.4167,-3.70325", 
+        "distance": "10000", # 10km
+        
+        # User defined filters:
         "minPrice": "80000",
         "maxPrice": "150000",
         "minBedrooms": "3",
         "hasLift": "true",
         "hasParkingSpace": "true",
-        # "sinceDate": "W" # Last week. Remove to get all.
+        
+        # Floor types (user asked for: ultimas-plantas, plantas-intermedias)
+        "penthouse": "true", # This might filter ONLY penthouses if set. 
+        # The API doesn't support "OR" logic easily for "penthouse OR intermediate".
+        # Leaving these optional or relying on propertyType=homes usually covers flats.
+        # "flat": "true", 
     }
     
     try:
