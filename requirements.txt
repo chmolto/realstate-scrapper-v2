@@ -1,5 +1,2 @@
-scrapy==2.11.2
-scrapy-playwright
 requests
 python-dotenv
-2captcha-python
