@@ -44,20 +44,78 @@ class SearchSpider(scrapy.Spider):
 
         # 1. Simple 403 / Title Check
         if response.status == 403:
-             self.logger.warning(f"⚠️  Access Denied (HTTP 403). Idealista blocked the request. Title: {await page.title()}")
-             # Here we could implement screenshot logic for debugging:
-             # await page.screenshot(path="block_screenshot.png")
+             self.logger.warning(f"⚠️  Access Denied (HTTP 403). Attempting to solve DataDome CAPTCHA...")
              
-             # Attempt to solve if it's a known captcha
-             # But first, let's just recognize it IS a block.
-             return
+             api_key = os.getenv("API_KEY_2CAPTCHA")
+             if not api_key:
+                 self.logger.error("❌ No API_KEY_2CAPTCHA found. Cannot solve.")
+                 return
 
-        # Check for textual CAPTCHA indicators even if 200 OK
-        title = await page.title()
-        content = await page.content()
-        if "idealista" not in title.lower() and ("captcha" in content.lower() or "robot" in content.lower() or "challenge" in content.lower()):
-             self.logger.warning(f"⚠️  Suspected CAPTCHA/Block. Title: {title}")
-             return
+             # Find the captcha URL from the iframes
+             frames = page.frames
+             captcha_url = None
+             for f in frames:
+                 if "geo.captcha-delivery.com" in f.url:
+                     captcha_url = f.url
+                     break
+            
+             if not captcha_url:
+                 # Backup: check if it's in the content as a script var or basic iframe src
+                 content = await page.content()
+                 if "geo.captcha-delivery.com" in content:
+                     # Attempt to parse or just give up for this simple iteration
+                     self.logger.error("❌ Could not isolate DataDome iframe URL from Playwright frames.")
+                 return
+
+             self.logger.info(f"🧩 Check found: {captcha_url}")
+             
+             solver = TwoCaptcha(api_key)
+             try:
+                 self.logger.info("⏳ Sending to 2Captcha...")
+                 # DataDome method requires: pageurl, captcha_url, useragent
+                 # 2captcha-python 2.1+ supports grid/datadome. 
+                 # We use the 'datadome' method if available or fall back to 'grid' custom.
+                 # Actually standard library usage:
+                 result = solver.datadome(
+                     sitekey=None, # SDK extracts cid from captcha_url usually, or passes url directly
+                     captcha_url=captcha_url,
+                     pageurl=response.url,
+                     useragent=await page.evaluate("navigator.userAgent"),
+                     proxy=None # GitHub Actions is proxies, usually requires proxy but we try.
+                 )
+                 
+                 code = result.get('code') # This is the cookie content usually "datadome=..."
+                 if code:
+                     self.logger.info(f"✅ CAPTCHA Solved! Cookie: {code[:30]}...")
+                     # The result is the value for the 'datadome' cookie
+                     cookie_value = code.replace("datadome=", "")
+                     
+                     await page.context.add_cookies([{
+                         "name": "datadome",
+                         "value": cookie_value,
+                         "domain": ".idealista.com",
+                         "path": "/"
+                     }])
+                     
+                     self.logger.info("🔄 Reloading page check content...")
+                     await page.reload(wait_until="domcontentloaded")
+                     
+                     # Re-check title
+                     if "idealista" in (await page.title()).lower():
+                         self.logger.info("🎉 Access Restored!")
+                     else:
+                         self.logger.warning("⚠️ Still suspicious after reload.")
+                         
+             except Exception as e:
+                 self.logger.error(f"❌ Solver Error: {e}")
+             
+             # If we solved it, the page object is updated. 
+             # We can proceed to scrape items from the reloaded page.
+             # Wait a sec for hydration
+             await page.wait_for_timeout(3000)
+
+        # Proceed to scrape (whether strictly 200 or recovered 403)
+
 
         # Scrape items
         items = await page.query_selector_all("article.item")
