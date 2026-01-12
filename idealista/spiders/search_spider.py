@@ -80,7 +80,7 @@ class SearchSpider(scrapy.Spider):
                      sitekey=None, # SDK extracts cid from captcha_url usually, or passes url directly
                      captcha_url=captcha_url,
                      pageurl=response.url,
-                     useragent=await page.evaluate("navigator.userAgent"),
+                     userAgent=await page.evaluate("navigator.userAgent"),
                      proxy=None # GitHub Actions is proxies, usually requires proxy but we try.
                  )
                  
