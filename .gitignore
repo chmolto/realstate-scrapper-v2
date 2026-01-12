@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Scrapy
+.scrapy
+
+# Virtual Environment
+venv/
+ENV/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Env config
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# History (We WANT to track history.json for this specific use case, so do not ignore it)
+# history.json 

@@ -1,0 +1,43 @@
+name: Idealista Scraper Cron
+
+on:
+  schedule:
+    # Run slightly offset to avoid :00 spikes (e.g. 8:15 AM/PM UTC)
+    - cron: "15 8,20 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to commit history.json back
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Run Scraper
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          API_KEY_2CAPTCHA: ${{ secrets.API_KEY_2CAPTCHA }}
+        run: |
+          scrapy crawl search
+
+      - name: Commit history if changed
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add history.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update scraper history" && git push)
