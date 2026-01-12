@@ -42,41 +42,22 @@ class SearchSpider(scrapy.Spider):
         except Exception:
             pass
 
-        # Check for CAPTCHA
-        title = await page.title()
-        if "idealista" in title and (
-            await page.locator('text="peticiones tuyas"').count() > 0 or 
-            await page.locator('text="verificación"').count() > 0
-        ):
-            self.logger.warning("⚠️ CAPTCHA detected. Attempting to solve with 2Captcha...")
-            
-            api_key = os.getenv("API_KEY_2CAPTCHA")
-            if not api_key:
-                self.logger.error("2Captcha API key not found in environment variables.")
-                return
+        # 1. Simple 403 / Title Check
+        if response.status == 403:
+             self.logger.warning(f"⚠️  Access Denied (HTTP 403). Idealista blocked the request. Title: {await page.title()}")
+             # Here we could implement screenshot logic for debugging:
+             # await page.screenshot(path="block_screenshot.png")
+             
+             # Attempt to solve if it's a known captcha
+             # But first, let's just recognize it IS a block.
+             return
 
-            try:
-                # 1. Get the sitekey (assuming reCAPTCHA or similar - Idealista often uses Datadome/turnstile/recaptcha)
-                # This part is tricky as protections rotate. 
-                # For standard reCAPTCHA v2:
-                # sitekey = await page.get_attribute(".g-recaptcha", "data-sitekey")
-                
-                # Ideally, we take a screenshot and solve image captcha or use 2captcha's Grid/Canvas methods
-                # depending on the actual captcha type presented.
-                # For this implementation, we will assume a basic check or just notify.
-                # Since specific captcha implementation details vary greatly by what they serve:
-                
-                self.logger.info("Solving mechanisms depend on the specific CAPTCHA type served (Turnstile, ReCaptcha, Datadome).")
-                self.logger.info("For now, pausing to avoid instant ban. Please check manually if this persists.")
-                
-                # Example for generic image captcha (if that's what it is)
-                # solver = TwoCaptcha(api_key)
-                # result = solver.normal('path_to_captcha_image.jpg')
-                
-            except Exception as e:
-                self.logger.error(f"Error solving captcha: {e}")
-            
-            return
+        # Check for textual CAPTCHA indicators even if 200 OK
+        title = await page.title()
+        content = await page.content()
+        if "idealista" not in title.lower() and ("captcha" in content.lower() or "robot" in content.lower() or "challenge" in content.lower()):
+             self.logger.warning(f"⚠️  Suspected CAPTCHA/Block. Title: {title}")
+             return
 
         # Scrape items
         items = await page.query_selector_all("article.item")
